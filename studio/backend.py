@@ -841,7 +841,7 @@ class Manager:
             displays = detect(self.monitors())["displays"]
             if len(displays) != 1:
                 raise RuntimeError("Connect one pair of VITURE glasses before opening the preview.")
-            args += ["--display", displays[0]]
+            args += ["--display", displays[0], "--windowed"]
         return args
 
     def direct_arguments(self):

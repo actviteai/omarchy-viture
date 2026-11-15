@@ -300,7 +300,7 @@ class CanvasTests(unittest.TestCase):
                     "--spacing", "24", "--pose-socket", pose]
             self.assertEqual(manager.viewer_command(False, False), base)
             with patch("backend.detect", return_value={"displays": ["DP-1"]}):
-                self.assertEqual(manager.viewer_command(True, False), base + ["--display", "DP-1"])
+                self.assertEqual(manager.viewer_command(True, False), base + ["--display", "DP-1", "--windowed"])
             manager.dedicated.output = "DP-1"
             self.assertEqual(manager.viewer_command(True, True), base + ["--direct", "DP-1", "--stereo"])
             manager.set_render_mode("canvas")
@@ -309,7 +309,7 @@ class CanvasTests(unittest.TestCase):
             canvas = ["/unused", "--canvas", str(manager.directory / "canvas.tsv"), "--fps", "60", "--pose-socket", pose]
             self.assertEqual(manager.viewer_command(False, False), canvas)
             with patch("backend.detect", return_value={"displays": ["DP-1"]}):
-                self.assertEqual(manager.viewer_command(True, False), canvas + ["--display", "DP-1"])
+                self.assertEqual(manager.viewer_command(True, False), canvas + ["--display", "DP-1", "--windowed"])
             self.assertEqual(manager.viewer_command(True, True), canvas + ["--direct", "DP-1", "--stereo"])
             self.assertIsNone(manager.applied)
         finally: self.close(manager)

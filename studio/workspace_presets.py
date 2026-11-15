@@ -41,4 +41,12 @@ def built_in_setups():
         for monitor in layout['monitors']:
             monitor['scale'] = 1.25
         setups.append({'id':'builtin:'+key, 'name':name, 'description':'Comfort starting point', 'layout':layout})
+    compass = row([fhd] * 4)
+    compass['workspaceDegrees'] = 360
+    compass['workspaceFollow'] = True
+    for monitor, name in zip(compass['monitors'], ('west', 'north', 'east', 'south')):
+        monitor['id'] = name
+    setups.append({'id':'builtin:compass', 'name':'Compass ring',
+                   'description':'West, north, east, and south on a 360 degree ring',
+                   'layout':compass})
     return setups

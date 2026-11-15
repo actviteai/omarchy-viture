@@ -9,6 +9,7 @@ import qs.Commons
 import "MonitorSnap.js" as MonitorSnap
 import "MonitorPresets.js" as MonitorPresets
 import "CurvatureAngles.js" as CurvatureAngles
+import "AudioRoute.js" as AudioRoute
 import "json_equal.js" as JsonEqual
 import "LayoutChanges.js" as LayoutChanges
 
@@ -142,6 +143,8 @@ Item {
     property string viewerExit: ""
     property string controlsHint: ""
     property var glasses: ({})
+    property string speakerProduct: ""
+    property string speakerDescription: ""
     property bool confirmRecovery: false
     property string feedback: ""
     property bool feedbackError: false
@@ -1071,6 +1074,11 @@ Item {
                                     accent: Color.accent
                                     foreground: Color.foreground
                                     onPicked: function(m) { root.requestedGlassesMode = m; root.send("set_glasses_mode"); }
+                                }
+                                Hint {
+                                    visible: root.speakerProduct !== ""
+                                    text: "Speakers: " + AudioRoute.sinkLabel(root.speakerDescription, root.speakerProduct)
+                                    helpText: "The HDMI port product name, so the glasses are not listed as HDMI 3"
                                 }
                                 Hint {
                                     text: (root.glassesMode === "mono"

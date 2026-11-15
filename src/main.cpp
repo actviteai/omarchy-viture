@@ -6,6 +6,9 @@
 #include "surface.hpp"
 #include "layout.hpp"
 #include "curvature.hpp"
+#include "beast_modes.h"
+#include "viewer_seat.hpp"
+#include "window_depth.hpp"
 #include "spacing.hpp"
 #include "pose_socket.hpp"
 #include "direct_output.hpp"
@@ -28,6 +31,10 @@
 #include "power.hpp"
 #include "idle_frames.hpp"
 #include "perf_card.hpp"
+
+static_assert(VITURE_NATIVE_DISPLAY_MODE_1920_1080_60HZ == 0x31, "native 1080p60");
+static_assert(VITURE_NATIVE_DISPLAY_MODE_3D_SBS_3840_1080_60HZ == 0x37, "native side-by-side");
+static_assert(windowDepth(1.f, -2.f) == 0.f, "pull stops at the workspace plane");
 #include <ctime>
 #include <csignal>
 #include <filesystem>
@@ -173,6 +180,7 @@ struct View {
     const std::string& layoutPath;
     int fps;
     bool spectatorEnabled;
+    bool windowed=false;
     PoseSocket tracking;
     std::unique_ptr<DirectOutput> output;
     std::unique_ptr<Spectator> spectator;
@@ -262,8 +270,8 @@ struct View {
     canvas::Scene::State canvasStateSeen=canvas::Scene::State::Overview;
     // Monitor-only math (safe distance, overview depth, bounds); canvas mode must never run it.
     mutable unsigned monitorMathCalls=0;
-    View(std::vector<Panel>& panels, bool smoke, spatial::Workspace workspace, float spacing, const std::string& display, const std::string& posePath, bool direct, bool stereo, float ipd, float fov, const std::string& layoutPath, int fps, bool spectatorEnabled)
-        : panels(panels), smoke(smoke), workspace(workspace), spacing(spacing), display(display), posePath(posePath), direct(direct), stereo(stereo), ipd(ipd), fov(fov), layoutPath(layoutPath), fps(fps), spectatorEnabled(spectatorEnabled), tracking(posePath), viewerPath(layoutPath) {}
+    View(std::vector<Panel>& panels, bool smoke, spatial::Workspace workspace, float spacing, const std::string& display, const std::string& posePath, bool direct, bool stereo, float ipd, float fov, const std::string& layoutPath, int fps, bool spectatorEnabled, bool windowedIn=false)
+        : panels(panels), smoke(smoke), workspace(workspace), spacing(spacing), display(display), posePath(posePath), direct(direct), stereo(stereo), ipd(ipd), fov(fov), layoutPath(layoutPath), fps(fps), spectatorEnabled(spectatorEnabled), windowed(windowedIn), tracking(posePath), viewerPath(layoutPath) {}
     void drawable(int& w, int& h) const { if (output) { w=output->width(); h=output->height(); } else SDL_GL_GetDrawableSize(window, &w, &h); }
     float span() const { return (right-left)/900.f; }
     float safe(float d) const { ++monitorMathCalls; return spatial::safeDistance(geometry, cx, cy, span(), d, workspace, spacing); }
@@ -302,7 +310,7 @@ struct View {
             SDL_WINDOWPOS_CENTERED_DISPLAY(displayIndex), SDL_WINDOWPOS_CENTERED_DISPLAY(displayIndex), 1280, 720,
             SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE|SDL_WINDOW_ALLOW_HIGHDPI);
         if (!window) { std::cerr << SDL_GetError() << '\n'; SDL_Quit(); return false; }
-        if (!display.empty() && SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP)!=0) {
+        if (fullscreenDisplay(!display.empty(), windowed) && SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP)!=0) {
             std::cerr << SDL_GetError() << '\n'; SDL_DestroyWindow(window); SDL_Quit(); return false;
         }
         context = SDL_GL_CreateContext(window);
@@ -2436,8 +2444,8 @@ struct View {
         return finish();
     }
 };
-int preview(std::vector<Panel>& panels, bool smoke, spatial::Workspace workspace, float spacing, const std::string& display, const std::string& posePath, bool direct, bool stereo, float ipd, float fov, const std::string& layoutPath, int fps, bool spectatorEnabled) {
-    return View(panels, smoke, workspace, spacing, display, posePath, direct, stereo, ipd, fov, layoutPath, fps, spectatorEnabled).run();
+int preview(std::vector<Panel>& panels, bool smoke, spatial::Workspace workspace, float spacing, const std::string& display, const std::string& posePath, bool direct, bool stereo, float ipd, float fov, const std::string& layoutPath, int fps, bool spectatorEnabled, bool windowed=false) {
+    return View(panels, smoke, workspace, spacing, display, posePath, direct, stereo, ipd, fov, layoutPath, fps, spectatorEnabled, windowed).run();
 }
 // The Lua adapter writes its version next to the pose socket; canvas mode needs v6 (§3.5).
 bool controlsVersionOk(const std::string& posePath, std::string& why) {
@@ -2474,7 +2482,7 @@ void checkCanvasOptions(const std::string& canvasPath, const std::string& window
 }
 int main(int argc,char** argv) {
     try {
-        bool smoke=false,list=false,direct=false,stereo=false,listLeases=false,spectator=false;float ipd=64,fov=28; int fps=60; spatial::Workspace workspace;float surfaceCurve=0; int spacing=24;
+        bool smoke=false,list=false,direct=false,stereo=false,listLeases=false,spectator=false,windowed=false;float ipd=64,fov=28; int fps=60; spatial::Workspace workspace;float surfaceCurve=0; int spacing=24;
         std::vector<PanelLayout> layouts; std::string path, display, posePath, canvasPath, windowsPath; bool monitorOptions=false;
         for (int i=1;i<argc;++i) {
             const std::string arg=argv[i];
@@ -2490,6 +2498,7 @@ int main(int argc,char** argv) {
             else if (arg=="--layout") path=value();
             else if (arg=="--canvas") canvasPath=value();
             else if (arg=="--canvas-windows-file") windowsPath=value();
+            else if (arg=="--windowed") windowed=true;
             else if (arg=="--display") display=value();
             else if (arg=="--direct") {display=value();direct=true;}
             else if (arg=="--spectator") spectator=true;
@@ -2537,6 +2546,6 @@ int main(int argc,char** argv) {
             }
             panels.push_back(std::move(p));
         }
-        return preview(panels,smoke,workspace,spacing,display,posePath,direct,stereo,ipd,fov,path,fps,spectator);
+        return preview(panels,smoke,workspace,spacing,display,posePath,direct,stereo,ipd,fov,path,fps,spectator,windowed);
     } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }
 }

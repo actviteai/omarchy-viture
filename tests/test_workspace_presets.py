@@ -11,7 +11,7 @@ from test_studio import FakeHypr
 class WorkspacePresetsTests(unittest.TestCase):
     def test_geometry_and_independent_copies(self):
         items=built_in_setups()
-        self.assertEqual(len(items),12)
+        self.assertEqual(len(items),13)
         for item in items:
             validate(item['layout'])
         portrait=items[4]['layout']['monitors']
