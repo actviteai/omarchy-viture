@@ -46,9 +46,30 @@ class SDK:
         except (OSError, ValueError, AttributeError):
             return False
 
+    def _product_valid(self, product):
+        # Beast also enumerates a microphone (35ca:1102). That is not a glasses
+        # control interface; counting it made connect() refuse the real pair.
+        if getattr(self, "_product_check", None) is None:
+            import ctypes
+            library = ctypes.CDLL(str(self.library()))
+            check = library.xr_device_provider_is_product_id_valid
+            check.argtypes, check.restype = [ctypes.c_int], ctypes.c_int
+            self._product_check = check
+        return bool(self._product_check(product))
+
     def devices(self):
-        return [int(read(p / "idProduct"), 16) for p in Path("/sys/bus/usb/devices").glob("*")
-                if read(p / "idVendor").lower() == "35ca" and read(p / "idProduct")]
+        found = []
+        for path in Path("/sys/bus/usb/devices").glob("*"):
+            if read(path / "idVendor").lower() != "35ca":
+                continue
+            product = read(path / "idProduct")
+            if not product:
+                continue
+            pid = int(product, 16)
+            if self.library().is_file() and not self._product_valid(pid):
+                continue
+            found.append(pid)
+        return found
 
     def connect(self):
         if not self.library().is_file():

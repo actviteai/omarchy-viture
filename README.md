@@ -1,5 +1,10 @@
 # Omarchy XR
 
+Omarchy XR by Andreas Fruth is the original developer of this application:
+<https://github.com/afruth/omarchy-xr>. Copyright (c) 2026 Andreas Fruth. The
+terms in [LICENSE](LICENSE) still govern this tree, including the limit on
+redistributing modified copies.
+
 A spatial desktop experiment for Omarchy / Hyprland and VITURE XR glasses.
 
 **Working now:** any number of independently captured panels, a native Omarchy

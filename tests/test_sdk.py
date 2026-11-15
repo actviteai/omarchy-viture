@@ -37,6 +37,39 @@ class SessionTests(unittest.TestCase):
             session = Session("/fake/libglasses.so")
         return session, library, calls
 
+    def test_beast_native_mode_stays_native_on_connect(self):
+        session, library, calls = self.make_session()
+        library.xr_device_provider_is_product_support_native_dof.side_effect = lambda *args: 1
+        library.xr_device_provider_native_set_mode = Mock(return_value=0)
+        library.xr_device_provider_native_set_dof = Mock(return_value=0)
+        session.connect(0x1201)
+        library.xr_device_provider_native_set_mode.assert_not_called()
+        library.xr_device_provider_native_set_dof.assert_not_called()
+        self.assertIn("open_imu", calls)
+        self.assertTrue(session.state()["nativeDof"])
+        session.close()
+
+    def test_beast_native_stereo_does_not_send_host_mode(self):
+        session, library, _ = self.make_session()
+        session.native_dof = True
+        session.handle = 0x100000001
+        library.xr_device_provider_native_get_mode = Mock(return_value=1)
+        library.xr_device_provider_set_display_mode = Mock(return_value=0)
+        with self.assertRaises(RuntimeError):
+            session.begin_stereo()
+        library.xr_device_provider_set_display_mode.assert_not_called()
+
+    def test_beast_already_in_bypass_does_not_change_native_mode(self):
+        session, library, _ = self.make_session()
+        library.xr_device_provider_is_product_support_native_dof.side_effect = lambda *args: 1
+        library.xr_device_provider_native_get_mode = Mock(return_value=0)
+        library.xr_device_provider_native_set_mode = Mock(return_value=0)
+        library.xr_device_provider_native_set_dof = Mock(return_value=0)
+        session.connect(0x1201)
+        library.xr_device_provider_native_set_mode.assert_not_called()
+        library.xr_device_provider_native_set_dof.assert_not_called()
+        session.close()
+
     def test_connect_tracking_expiry_and_cleanup(self):
         session, library, calls = self.make_session()
         session.connect(0x1301)
@@ -321,6 +354,26 @@ class CarinaTests(unittest.TestCase):
 
 
 class SupervisorTests(unittest.TestCase):
+    def test_beast_microphone_is_not_a_second_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            usb = Path(directory) / "usb"
+            for name, product in (("mic", "1102"), ("glasses", "1201"), ("other", "1234")):
+                node = usb / name
+                node.mkdir(parents=True)
+                (node / "idVendor").write_text("35ca\n")
+                (node / "idProduct").write_text(product + "\n")
+            (usb / "hub").mkdir()
+            sdk = SDK(directory)
+            library = Path(directory) / "lib.so"
+            library.write_text("")
+            def fake_path(value):
+                if value == "/sys/bus/usb/devices":
+                    return usb
+                return Path(value)
+            with patch("sdk.Path", side_effect=fake_path), patch.object(sdk, "library", return_value=library), \
+                    patch.object(sdk, "_product_valid", side_effect=lambda pid: pid == 0x1201):
+                self.assertEqual(sdk.devices(), [0x1201])
+
     def test_worker_receives_the_viewer_pose_socket(self):
         with tempfile.TemporaryDirectory() as directory:
             pose = Path(directory) / "runtime" / "pose.sock"

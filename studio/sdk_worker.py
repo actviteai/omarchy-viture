@@ -69,6 +69,26 @@ class Session:
             fn = getattr(self.lib, "xr_device_provider_" + name)
             fn.argtypes, fn.restype = args, result
 
+    def bind_native(self):
+        # Beast native display and DOF calls. Host display-mode 0x32 is a
+        # different table and is not the native side-by-side mode.
+        signatures = {
+            "native_get_mode": ([C.c_void_p], C.c_int),
+            "native_set_mode": ([C.c_void_p, C.c_int], C.c_int),
+            "native_get_dof": ([C.c_void_p], C.c_int),
+            "native_set_dof": ([C.c_void_p, C.c_int], C.c_int),
+        }
+        for name, (args, result) in signatures.items():
+            fn = getattr(self.lib, "xr_device_provider_" + name)
+            fn.argtypes, fn.restype = args, result
+
+    def use_host_tracking(self):
+        # Measured on this Beast: leaving native mode does not unlock host pose
+        # IMU or host display mode 0x32, and native side-by-side 0x37 is
+        # acknowledged while the reported mode and EDID stay 1920×1080.
+        # Connect must not drop on-device DOF or native mode.
+        return
+
     def bind_carina(self):
         # Bound on demand so a Gen1/Gen2-only runtime without these symbols still loads.
         signatures = {
@@ -150,6 +170,7 @@ class Session:
             # An acknowledged device query, not just a successfully allocated handle.
             self.check("get_brightness_level", self.handle)
             self.communication = True
+            self.use_host_tracking()
             self.load_mode_journal()
             try:
                 self.mode = self.check("get_display_mode", self.handle)
@@ -213,6 +234,16 @@ class Session:
         raise RuntimeError(f"Display mode readback mismatch: expected {expected:#x}, got {actual!r}")
 
     def begin_stereo(self):
+        if self.native_dof:
+            self.bind_native()
+            mode = self.call("native_get_mode", self.handle)
+            if mode == 1:
+                # Host 0x32 is the bypass SBS code. In native mode that value is
+                # 1920×1080@90, which this Beast does not support. Native SBS is
+                # 0x37, and on this machine the firmware leaves the mode at 0x31.
+                raise RuntimeError(
+                    "The glasses stayed in native 1920×1080. Stereo needs a 3840×1080 "
+                    "DisplayPort mode, and the glasses did not switch to one.")
         if self.original_mode is None:
             self.original_mode = self.check("get_display_mode", self.handle)
             if self.mode_journal:
