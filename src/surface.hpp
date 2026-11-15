@@ -1,13 +1,18 @@
 #pragma once
 #include "layout.hpp"
 #include "curvature.hpp"
+#include "window_depth.hpp"
 #include <string>
 #include <string_view>
 
 // The shared cylinder every surface bends onto: layout centre, arc span (world units), radius and wrap.
 struct Cylinder {
     float cx=0, cy=0, span=0, distance=5; spatial::Workspace workspace;
-    spatial::Pose pose(const PanelLayout& p) const { return spatial::pose((p.x+p.width/2-cx)/900, -(p.y+p.height/2-cy)/900, p.width/900, span, distance, workspace, p.curvature); }
+    spatial::Pose pose(const PanelLayout& p) const {
+        auto placed = spatial::pose((p.x+p.width/2-cx)/900, -(p.y+p.height/2-cy)/900, p.width/900, span, distance, workspace, p.curvature);
+        placed.center.z -= depthOffset(p.depth);
+        return placed;
+    }
 };
 // Per-surface draw data in either scene mode (a monitor panel today, a canvas window later). Read-only.
 struct SurfaceView {

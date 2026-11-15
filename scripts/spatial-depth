@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+"""Push the focused window back, or pull it forward, on its current workspace."""
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "studio"))
+from window_depth import move, opacity
+
+DEPTH = Path.home() / ".local/state/omarchy-xr/window-depth.json"
+
+
+def focused_address():
+    data = json.loads(subprocess.check_output(["hyprctl", "-j", "activewindow"], text=True))
+    address = str(data.get("address") or "")
+    if not address.startswith("0x") or address == "0x0":
+        raise SystemExit("No focused window")
+    return address
+
+
+def show(address, depth):
+    value = f"{opacity(depth):.2f} override"
+    command = (
+        'hl.dsp.window.set_prop({ prop = "opacity", value = "'
+        + value
+        + '", window = "address:'
+        + address
+        + '" })'
+    )
+    subprocess.run(["hyprctl", "dispatch", command], check=False)
+
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ("push", "pull"):
+        raise SystemExit("usage: spatial-depth push|pull")
+    address = focused_address()
+    depth = move(DEPTH, address, 1 if sys.argv[1] == "push" else -1)
+    show(address, depth)
+    print(f"{address} depth {depth:g} opacity {opacity(depth):.2f}")
+
+
+if __name__ == "__main__":
+    main()

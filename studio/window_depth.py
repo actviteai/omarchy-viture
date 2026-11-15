@@ -17,6 +17,21 @@ def save(path, depths):
     Path(path).write_text(json.dumps(depths, indent=2) + "\n", encoding="utf-8")
 
 
+def opacity(depth):
+    """Front is fully solid. Each step back is a little more transparent, never below 0.35."""
+    if depth < 0:
+        raise ValueError("Depth cannot be in front of the workspace")
+    value = 1.0 - 0.16 * depth
+    return 0.35 if value < 0.35 else value
+
+
+def view_offset(depth):
+    """Match src/window_depth.hpp depthOffset: world units farther from the eye."""
+    if depth < 0:
+        raise ValueError("Depth cannot be in front of the workspace")
+    return 0.0 if depth == 0 else depth * 0.35
+
+
 def move(path, address, delta):
     """Push (positive delta) or pull (negative). The Hyprland workspace is untouched."""
     if not isinstance(address, str) or not address.startswith("0x"):

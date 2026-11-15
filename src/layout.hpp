@@ -12,6 +12,7 @@ struct PanelLayout {
     float x = 0, y = 0, width = 1920, height = 1080;
     float curvature = 0;
     float brightness = 100;
+    float depth = 0;
 };
 inline std::vector<PanelLayout> readLayout(const std::string& path) {
     std::ifstream file(path);
@@ -37,8 +38,13 @@ inline std::vector<PanelLayout> readLayout(const std::string& path) {
         }
         row >> std::ws;
         if (!row.eof()) {
-            if (!(row >> p.brightness) || row >> extra || !std::isfinite(p.brightness) || p.brightness < 1 || p.brightness > 100)
+            if (!(row >> p.brightness) || !std::isfinite(p.brightness) || p.brightness < 1 || p.brightness > 100)
                 throw std::runtime_error("Brightness must be 1..100");
+        }
+        row >> std::ws;
+        if (!row.eof()) {
+            if (!(row >> p.depth) || row >> extra || !std::isfinite(p.depth) || p.depth < 0 || p.depth > 20)
+                throw std::runtime_error("Depth must be 0..20");
         }
         panels.push_back(p);
     }
